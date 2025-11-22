@@ -1,5 +1,5 @@
-import {Search} from "lucide-react"
 
+import { IconSearch } from '@tabler/icons-react';
 import React, { useEffect, useRef, useState } from 'react'
 
 export const InputSearch = () => {
@@ -20,7 +20,7 @@ export const InputSearch = () => {
     return (
         <div ref={ref} className='flex items-center ring ring-gray-400 flex-1 rounded-sm relative'>
             <div className='p-2'>
-                <Search size={15} />
+                <IconSearch size={15} />
             </div>
             <input onFocus={() => setOnSearch(true)} className='outline-none w-full' placeholder='Search'></input>
             {onSearch && 
