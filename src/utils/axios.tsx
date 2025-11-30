@@ -4,7 +4,7 @@ import { redirect } from 'next/navigation'
 
 
 const API = axios.create({
-  baseURL:'https://localhost:5024/v1',
+  baseURL:'http://localhost:5024/v1',
   timeout: 10000,
   withCredentials: true,
   headers: {

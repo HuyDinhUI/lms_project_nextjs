@@ -13,8 +13,6 @@ import {
 import { Popover } from "./ui/popover";
 import { Button } from "./ui/button";
 import API from "@/utils/axios";
-import { slugtify } from "@/utils/formatters";
-import { toast } from "react-toastify";
 import Image from "next/image";
 
 const listBackgroundImg = [
@@ -119,7 +117,7 @@ export const CreateBoard = () => {
         <div className="ratio">
           <ul className="grid grid-cols-4 list-none gap-2 pb-2">
             {listBackgroundImg.map((item) => (
-              <li key={item.id} className="h-[40px]">
+              <li key={item.id} className="min-h-10">
                 <button
                   onClick={() => setSelected(item.img)}
                   className="cursor-pointer h-full w-full flex justify-center items-center bg-cover rounded-[3px] brightness-90 hover:brightness-70"
@@ -132,7 +130,7 @@ export const CreateBoard = () => {
           </ul>
           <ul className="grid grid-cols-6 list-none gap-2">
             {listBackgroundColor.map((item) => (
-              <li key={item.id} className="h-[32px]">
+              <li key={item.id} className="min-h-8">
                 <button
                   onClick={() => setSelected(item.img)}
                   className="cursor-pointer h-full w-full flex justify-center items-center bg-cover rounded-[3px] brightness-90 hover:brightness-70"

@@ -33,7 +33,7 @@ export const Dialog = ({ children, trigger }: DialogProps) => {
       </div>
       {isOpenDialog && (
         <Portal>
-          <div className="fixed top-0 left-0 w-screen h-screen bg-black/40"></div>
+          <div onClick={() => setIsOpenDialog(false)} className="fixed top-0 left-0 w-screen h-screen bg-black/40"></div>
           <div className="fixed top-0 left-1/2 -translate-x-1/2 dark:bg-card mt-10">
             <div className="w-270">{children}</div>
             <button

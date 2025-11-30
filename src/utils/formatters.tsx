@@ -4,8 +4,13 @@ export function generatePlaceholdeCard(column: any) {
         label: '',
         FE_placeholderCard: true,
         columnId: column._id,
-        checklist:[]
-    }
+        checklist:[],
+        status: false,
+        cover: "",
+        description: "",
+        attachments: [],
+        joined: []
+        }
 }
 
 export function slugtify(val: string) {

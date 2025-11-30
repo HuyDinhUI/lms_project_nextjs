@@ -1,6 +1,7 @@
 import Board from "./board"
 
-const BoardPage = () => {
+const BoardPage = async () => {
+
     return (
         <Board/>
     )

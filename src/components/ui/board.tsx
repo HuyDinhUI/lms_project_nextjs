@@ -14,7 +14,7 @@ export type BoardItemProps = {
     href?: string
 }
 
-export const Board = ({ type, title, img = '', href = '' }: BoardItemProps) => {
+export const BoardItem = ({ type, title, img = '', href = '' }: BoardItemProps) => {
 
     const [starred, setSarred] = useState(false)
 

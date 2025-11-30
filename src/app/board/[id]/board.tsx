@@ -12,7 +12,7 @@ import {
   defaultDropAnimationSideEffects,
   closestCorners,
 } from "@dnd-kit/core";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { arrayMove } from "@dnd-kit/sortable";
 import { Column } from "@/components/boards/columns";
 import { Card, ListCard } from "@/components/boards/card";
@@ -21,7 +21,10 @@ import { generatePlaceholdeCard } from "@/utils/formatters";
 import API from "@/utils/axios";
 import { toast } from "react-toastify";
 import { useParams } from "next/navigation";
-import { useBoard } from "@/hooks/useBoard";
+import { useAppDispatch, useAppSelector } from "@/hooks/useRedux";
+import { AppDispatch, RootState } from "@/store";
+import { fetchBoard, setColumn } from "@/store/boardSlice";
+import { SkeletonBoardPage } from "@/components/ui/skeleton";
 
 const TYPE_ACTIVE_DND = {
   COLUMN: "T_COLUMN",
@@ -35,8 +38,11 @@ const Board = () => {
     },
   });
   const sensors = useSensors(pointerSensor);
-  const { board, columns, setColumns, setBoard, loading, error, refresh } =
-    useBoard();
+  const dispatch = useAppDispatch<AppDispatch>();
+  const { board, columns, loading, error } = useAppSelector(
+    (state: RootState) => state.board
+  );
+  
   const [activeDragItemId, setActiveDragItemId] = useState<string | null>(null);
   const [activeDragItemType, setActiveDragItemType] = useState<string | null>(
     null
@@ -44,6 +50,12 @@ const Board = () => {
   const [activeDragItemData, setActiveDragItemData] = useState<any>(null);
 
   const { id } = useParams();
+
+  useEffect(() => {
+    if (!id) return;
+
+    dispatch(fetchBoard(id));
+  }, [dispatch, id]);
 
   const findColumn = (cardId: any) => {
     return columns?.find((column) =>
@@ -82,57 +94,49 @@ const Board = () => {
 
     if (!activeColumn || !overColumn) return;
 
-    setColumns((prevColumn) => {
-      const overCardIndex = overColumn?.cards?.findIndex(
-        (card) => card._id === overCardId
+    const overCardIndex = overColumn?.cards?.findIndex(
+      (card) => card._id === overCardId
+    );
+
+    const isBelowOverItem =
+      active.rect.current.translated &&
+      active.rect.current.translated.top > over.rect.top + over.rect.height;
+    const modifier = isBelowOverItem ? 1 : 0;
+    const newCardIndex =
+      overCardIndex >= 0
+        ? overCardIndex + modifier
+        : overColumn?.cards?.length + 1;
+
+    const nextColumns = cloneDeep(columns);
+    const nextActiveColumn = nextColumns?.find(
+      (column) => column._id === activeColumn._id
+    );
+    const nextOverColumn = nextColumns?.find(
+      (column) => column._id === overColumn._id
+    );
+
+    // xoá card đang kéo khỏi column chứa card đang kéo
+    if (nextActiveColumn) {
+      nextActiveColumn.cards = nextActiveColumn.cards.filter(
+        (card) => card._id !== activeDrappingCardId
       );
 
-      const isBelowOverItem =
-        active.rect.current.translated &&
-        active.rect.current.translated.top > over.rect.top + over.rect.height;
-      const modifier = isBelowOverItem ? 1 : 0;
-      const newCardIndex =
-        overCardIndex >= 0
-          ? overCardIndex + modifier
-          : overColumn?.cards?.length + 1;
-
-      const nextColumns = cloneDeep(prevColumn);
-      const nextActiveColumn = nextColumns?.find(
-        (column) => column._id === activeColumn._id
-      );
-      const nextOverColumn = nextColumns?.find(
-        (column) => column._id === overColumn._id
-      );
-
-      // xoá card đang kéo khỏi column chứa card đang kéo
-      if (nextActiveColumn) {
-        nextActiveColumn.cards = nextActiveColumn.cards.filter(
-          (card) => card._id !== activeDrappingCardId
-        );
-
-        if (isEmpty(nextActiveColumn.cards)) {
-          nextActiveColumn.cards = [generatePlaceholdeCard(nextActiveColumn)];
-        }
+      if (isEmpty(nextActiveColumn.cards)) {
+        nextActiveColumn.cards = [generatePlaceholdeCard(nextActiveColumn)];
       }
+    }
 
-      // thêm card đang kéo vào column được thả vào
-      if (nextOverColumn) {
-        // nextOverColumn.card = nextOverColumn.card.filter(card => card.id !== activeDrappingCardId)
-        nextOverColumn.cards.splice(newCardIndex, 0, activeDrappingCardData);
+    // thêm card đang kéo vào column được thả vào
+    if (nextOverColumn) {
+      // nextOverColumn.card = nextOverColumn.card.filter(card => card.id !== activeDrappingCardId)
+      nextOverColumn.cards.splice(newCardIndex, 0, activeDrappingCardData);
 
-        nextOverColumn.cards = nextOverColumn.cards.filter(
-          (card) => !card.FE_placeholderCard
-        );
+      nextOverColumn.cards = nextOverColumn.cards.filter(
+        (card) => !card.FE_placeholderCard
+      );
+    }
 
-        // console.log('overcardIndex:', overCardIndex)
-        // console.log('isbelow:', isBelowOverItem)
-        // console.log('modifier:', modifier)
-        // console.log('new index card:', newCardIndex)
-        // console.log(nextColumns)
-      }
-
-      return nextColumns;
-    });
+    dispatch(setColumn(nextColumns));
   };
 
   const HandleDragEnd = async (event: any) => {
@@ -167,7 +171,7 @@ const Board = () => {
       const newIndex = columns?.findIndex((c) => c._id === over.id);
 
       const NewColumnData = arrayMove(columns, oldIndex, newIndex);
-      setColumns(NewColumnData);
+      dispatch(setColumn(NewColumnData));
 
       try {
         const res = await API.put(`/boards/reorderColumn/${id}`, {
@@ -190,46 +194,7 @@ const Board = () => {
     }),
   };
 
-  const handleCreateColumn = async (title: string) => {
-    const data = {
-      title,
-      boardId: id,
-    };
-
-    try {
-      const res = await API.post("/column", data);
-      console.log(res.data);
-      refresh();
-    } catch (err: any) {
-      toast.error(err?.response?.data?.message);
-    }
-  };
-
-  const handleCreateCard = async (label: string, columnId: string) => {
-    const data = {
-      label,
-      columnId,
-    };
-
-    console.log(data);
-
-    try {
-      const res = await API.post("/card", data);
-      console.log(res.data);
-      refresh();
-    } catch (err: any) {
-      toast.error(err?.response?.data?.message);
-    }
-  };
-
-  const handleUpdateLabelColumn = async (title: string, boardId: string) => {
-    try {
-      await API.put("/column", { title, boardId });
-      refresh();
-    } catch (err: any) {
-      toast.error(err?.response?.data?.message);
-    }
-  };
+  if (loading) return <SkeletonBoardPage />;
 
   return (
     <div className="flex h-full gap-5">
@@ -276,7 +241,7 @@ const Board = () => {
               <Button size="ic" variant="icon" icon={<Ellipsis size={18} />} />
             </div>
           </header>
-          <div className="w-ful flex-1 relative overflow-x-auto scroll-smooth">
+          <div className="flex-1 relative overflow-x-auto scroll-smooth">
             <DndContext
               onDragEnd={HandleDragEnd}
               onDragStart={HandleDragStart}
@@ -284,22 +249,16 @@ const Board = () => {
               sensors={sensors}
               collisionDetection={closestCorners}
             >
-              <ListColumns
-                handleUpdateLabelColumn={handleUpdateLabelColumn}
-                handleCreateCard={handleCreateCard}
-                handleCreateColumn={handleCreateColumn}
-                columns={columns ? columns : []}
-              />
+              <ListColumns columns={columns ? columns : []} />
               <DragOverlay dropAnimation={dropAnimation}>
                 {!activeDragItemId && null}
                 {activeDragItemId &&
                   activeDragItemType === TYPE_ACTIVE_DND.COLUMN && (
                     <Column
-                      handleUpdateLabelColumn={handleUpdateLabelColumn}
-                      handleCreateCard={handleCreateCard}
                       label={activeDragItemData.label}
                       id={activeDragItemData.id}
                       card={activeDragItemData.card}
+                      boardId={activeDragItemData.boardId}
                     >
                       <ListCard items={activeDragItemData.card} />
                     </Column>

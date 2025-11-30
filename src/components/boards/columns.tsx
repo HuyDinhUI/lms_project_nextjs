@@ -6,19 +6,29 @@ import {
   useSortable,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import type { CardType } from "@/types/board/card";
 import { ListCard } from "./card";
 import { Button } from "../ui/button";
 import { DropdownMenu } from "../ui/dropdown";
 import type { MenuItem } from "@/types/menu-item/menu-item-type";
+import { Card, Column as ColumnType } from "@/types/board.type";
+import { useAppDispatch } from "@/hooks/useRedux";
+import { AppDispatch } from "@/store";
+import {
+  addCard,
+  addColumn,
+  deleteColumn,
+  editLabel,
+  fetchBoard,
+} from "@/store/boardSlice";
+import { ColumnService } from "@/services/column.service";
+import { CardService } from "@/services/card.service";
 
 type ColummsProps = {
   label: string;
   children: ReactNode;
   id: string;
-  handleCreateCard: (label: string, columnId: string) => void;
-  handleUpdateLabelColumn: (title: string, columnId: string) => void;
-  card: CardType[];
+  boardId: string;
+  card: Card[];
 };
 
 export const Column = ({
@@ -26,33 +36,12 @@ export const Column = ({
   children,
   id,
   card,
-  handleCreateCard,
-  handleUpdateLabelColumn,
+  boardId,
 }: ColummsProps) => {
-  const ActionsBoardItems: MenuItem[] = [
-    { label: "Add card" },
-    { label: "Copy list" },
-    { label: "Move list" },
-    { label: "Move all card in this list" },
-    {
-      label: "Sort by",
-      children: [
-        {
-          label: "Date created (newest first)",
-        },
-        {
-          label: "Date created (oldest first)",
-        },
-      ],
-    },
-    { separator: true },
-    { label: "Archive this list" },
-    { label: "Archive all cards in this list" },
-  ];
-
   const [openCreate, setOpenCreate] = useState(false);
   const [openEditLabel, setOpenEditLabel] = useState(false);
   const input = useRef<HTMLTextAreaElement>(null);
+  const dispatch = useAppDispatch<AppDispatch>();
 
   const {
     attributes,
@@ -74,10 +63,20 @@ export const Column = ({
   const [labelInputColumn, setLabelInputColumn] = useState<string>("");
 
   useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
+    const handleClickOutside = async (event: MouseEvent) => {
       if (input.current && !input.current.contains(event.target as Node)) {
-        handleUpdateLabelColumn(labelInputColumn, id);
+        dispatch(editLabel({ columnId: id, value: labelInputColumn }));
         setOpenEditLabel(false);
+        setLabelInputColumn("");
+
+        const data = {
+          title: labelInputColumn,
+          columnId: id,
+        };
+
+        try {
+          await ColumnService.updateColumn(data);
+        } catch {}
       }
     };
 
@@ -87,16 +86,87 @@ export const Column = ({
     };
   }, [labelInputColumn]);
 
+  const handleCreateCard = async () => {
+    dispatch(addCard({ label: labelInputCard, columnId: id }));
+    setLabelInputCard("");
+    setOpenCreate(false);
+
+    const data = {
+      label: labelInputCard,
+      columnId: id,
+    };
+
+    try {
+      await CardService.createCard(data);
+    } catch {}
+  };
+
+  const handleDeleteColumn = async () => {
+    dispatch(deleteColumn({ columnId: id }));
+
+    try {
+      await ColumnService.deleteColumn(id);
+    } catch {}
+  };
+
+  const ActionsBoardItems: MenuItem[] = [
+    {
+      label: "Add card",
+      children: [
+        {
+          element: (
+            <div className="py-3">
+              <textarea
+                className="w-full resize-none p-2 rounded-md bg-white dark:bg-background ring ring-gray-100 outline-blue-500"
+                placeholder="Enter a title or past a link"
+                autoFocus
+                onChange={(e) => setLabelInputCard(e.target.value)}
+              ></textarea>
+              <Button
+                onClick={() => handleCreateCard()}
+                title="Add"
+                variant="primary"
+                className="mt-2"
+              />
+            </div>
+          ),
+        },
+      ],
+    },
+    { label: "Copy list" },
+    { label: "Move list" },
+    { label: "Move all card in this list" },
+    {
+      label: "Sort by",
+      children: [
+        {
+          label: "Date created (newest first)",
+        },
+        {
+          label: "Date created (oldest first)",
+        },
+      ],
+    },
+    { separator: true },
+    {
+      label: "Archive this list",
+      onClick() {
+        handleDeleteColumn();
+      },
+    },
+    { label: "Archive all cards in this list" },
+  ];
+
   return (
     <div
       ref={setNodeRef}
       style={style}
       {...attributes}
-      className="w-80 rounded-xl"
+      className="w-70 rounded-xl"
     >
       <div
         {...listeners}
-        className="bg-gray-100 dark:bg-column rounded-xl cursor-pointer max-h-[80vh] relative"
+        className="bg-gray-100 dark:bg-column rounded-xl cursor-pointer min-h-30 max-h-[80vh] relative"
       >
         <header className="flex justify-between gap-2 items-center p-2">
           {!openEditLabel ? (
@@ -141,7 +211,7 @@ export const Column = ({
               />
               <div className="w-full flex gap-2 mt-2 justify-start">
                 <Button
-                  onClick={() => handleCreateCard(labelInputCard, id)}
+                  onClick={() => handleCreateCard()}
                   variant="primary"
                   title="Add card"
                 />
@@ -161,7 +231,7 @@ export const Column = ({
               onClick={() => setOpenCreate(true)}
               variant="transparent"
               title="Add a card"
-              icon={<Plus/>}
+              icon={<Plus />}
               className="w-full hover:bg-black/5 rounded-md"
             >
               <Plus size={18} />
@@ -174,47 +244,48 @@ export const Column = ({
   );
 };
 
-export type Columns = {
-  _id: string;
-  title: string;
-  cards: CardType[];
-};
-
 type ListColumnsProps = {
-  handleCreateColumn: (title: string) => void;
-  handleCreateCard: (label: string, columnId: string) => void;
-  handleUpdateLabelColumn: (title: string, columnId: string) => void;
-  columns: Columns[];
+  columns: ColumnType[];
 };
 
-export const ListColumns = ({
-  columns,
-  handleCreateColumn,
-  handleCreateCard,
-  handleUpdateLabelColumn,
-}: ListColumnsProps) => {
+export const ListColumns = ({ columns }: ListColumnsProps) => {
   const [openCreate, setOpenCreate] = useState(false);
   const [title, setTitle] = useState<string>("");
+  const dispatch = useAppDispatch<AppDispatch>();
+
+  const handleAddColumn = async () => {
+    dispatch(addColumn({ title, boardId: columns[0].boardId }));
+    setTitle("");
+    setOpenCreate(false);
+
+    const data = {
+      title,
+      boardId: columns[0].boardId,
+      cards: [],
+    };
+    try {
+      await ColumnService.createColumn(data);
+    } catch {}
+  };
 
   return (
     <SortableContext
       items={columns.map((c) => c._id)}
       strategy={horizontalListSortingStrategy}
     >
-      <div className="flex p-5 gap-3 h-full max-h-[80vh]">
+      <div className="flex p-5 gap-3 max-h-[80vh] overflow-x-scroll absolute">
         {columns.map((col) => (
           <Column
-            handleUpdateLabelColumn={handleUpdateLabelColumn}
-            handleCreateCard={handleCreateCard}
             key={col._id}
             id={col._id}
             label={col.title}
             card={col.cards}
+            boardId={col.boardId}
           >
             <ListCard items={col.cards} />
           </Column>
         ))}
-        <div className="w-80">
+        <div className="w-70">
           {!openCreate ? (
             <button
               onClick={() => setOpenCreate(true)}
@@ -233,7 +304,7 @@ export const ListColumns = ({
               />
               <div className="w-full flex gap-2 mt-2 justify-start">
                 <Button
-                  onClick={() => handleCreateColumn(title)}
+                  onClick={() => handleAddColumn()}
                   variant="primary"
                   title="Add list"
                 />

@@ -1,24 +1,21 @@
 "use client";
 
 import { CreateBoard } from "@/components/create-board";
-import { Board, BoardContainer, BoardWorkspace } from "@/components/ui/board";
+import { BoardItem, BoardContainer, BoardWorkspace } from "@/components/ui/board";
 import { Button } from "@/components/ui/button";
 import { Popover } from "@/components/ui/popover";
+import { SkeletonBoardsPage } from "@/components/ui/skeleton";
+import { Board } from "@/types/board.type";
 import API from "@/utils/axios";
 import { Rocket } from "lucide-react";
 import { useEffect, useState } from "react";
 
-const Boards = () => {
-  const [board, setBoard] = useState<any>(null);
+type props = {
+  board: Board[]
+}
 
-  useEffect(() => {
-    const getBoards = async () => {
-      const res = await API.get("/boards");
-      setBoard(res.data);
-    };
+const Boards = ({board}: props) => {
 
-    getBoards();
-  }, []);
   return (
     <div className="flex-1 min-h-screen pt-4 px-30">
       {/* Starred */}
@@ -33,9 +30,9 @@ const Boards = () => {
       {/* Your Workspace */}
       <BoardWorkspace label="your workspace">
         <BoardContainer icon={<Rocket />} title="Trello Workspace">
-          {board?.map((b: any) => {
+          {board.map((b: any) => {
             return (
-              <Board
+              <BoardItem
                 href={`/board/${b._id}`}
                 key={b._id}
                 type="primary"

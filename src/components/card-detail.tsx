@@ -1,8 +1,7 @@
 "use client";
 
-import type { CardType } from "@/types/board/card";
 import CheckboxDemo from "./ui/checkbox";
-import { useEffect, useReducer, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import { Popover } from "./ui/popover";
 import { Button } from "./ui/button";
 import {
@@ -19,67 +18,46 @@ import { COVER_COLOR, COVER_PHOTOS } from "@/mock/cover-data";
 import Image from "next/image";
 import "quill/dist/quill.snow.css";
 import Editor from "./ui/editor";
-import API from "@/utils/axios";
-import { useBoard } from "@/hooks/useBoard";
+import { useAppDispatch } from "@/hooks/useRedux";
+import { AppDispatch } from "@/store";
+import { updateCard } from "@/store/boardSlice";
+import { CardService } from "@/services/card.service";
+import { Card } from "@/types/board.type";
 
 type CardDetailProps = {
-  data: CardType;
-};
-
-const cardReducer = (state: CardType, action: any) => {
-  switch (action.type) {
-    case "SET_DATA":
-      return { ...action.card };
-    case "UPDATE_FIELD":
-      return { ...state, [action.field]: action.value };
-  }
+  data: Card;
 };
 
 export const CardDetail = ({ data }: CardDetailProps) => {
-  const [card, dispatch] = useReducer(cardReducer, data);
   const [isOpenForm, setIsOpenForm] = useState<boolean>(false);
-  const { refresh } = useBoard();
   const [isInit, setIsInit] = useState(true);
   const updateTimer = useRef<any>(null);
+  const dispatch = useAppDispatch<AppDispatch>();
 
-  useEffect(() => {
-    const getCard = async () => {
-      try {
-        const res = await API.get(`/card/get/card/${data._id}`);
-        dispatch({
-          type: "SET_DATA",
-          card: res.data,
-        });
-        setIsInit(false);
-      } catch (err: any) {
-        console.log(err?.response);
-      }
-    };
+  const handleUpdateCard = async (
+    columnId: string,
+    cardId: string,
+    field: string,
+    value: any
+  ) => {
+    const newData = { ...data, [field]: value };
+    console.log(field);
+    console.log(value);
+    dispatch(updateCard({ columnId, cardId, field, value }));
 
-    getCard();
-  }, [data._id]);
-
-  useEffect(() => {
-    if (isInit) return;
-
-    if (updateTimer.current) clearTimeout(updateTimer.current);
-
-    updateTimer.current = setTimeout(async () => {
-      await API.put("/card/update/content", card);
-      refresh();
-    }, 500);
-
-    return () => clearTimeout(updateTimer.current);
-  }, [card]);
+    try {
+      await CardService.updateContent(newData);
+    } catch {}
+  };
 
   return (
     <div className={`flex flex-col max-h-dvh bg-white rounded-xl`}>
       {/* cover */}
       <div
         className={`bg-cover w-full border-b border-gray-200 relative group rounded-tl-xl rounded-tr-xl ${
-          card?.cover ? "min-h-30" : "min-h-15"
+          data?.cover ? "min-h-30" : "min-h-15"
         }`}
-        style={{ backgroundImage: `url(${card?.cover})` }}
+        style={{ backgroundImage: `url(${data?.cover})` }}
       >
         <div className="absolute px-15 right-0 top-3.5 flex gap-2 items-center">
           <Popover
@@ -105,11 +83,12 @@ export const CardDetail = ({ data }: CardDetailProps) => {
                     {COVER_COLOR.map((c, i) => (
                       <Image
                         onClick={() =>
-                          dispatch({
-                            type: "UPDATE_FIELD",
-                            value: c.url,
-                            field: "cover",
-                          })
+                          handleUpdateCard(
+                            data.columnId,
+                            data._id,
+                            "cover",
+                            c.url
+                          )
                         }
                         key={i}
                         src={c.url}
@@ -127,11 +106,12 @@ export const CardDetail = ({ data }: CardDetailProps) => {
                     {COVER_PHOTOS.map((c, i) => (
                       <Image
                         onClick={() =>
-                          dispatch({
-                            type: "UPDATE_FIELD",
-                            value: c.url,
-                            field: "cover",
-                          })
+                          handleUpdateCard(
+                            data.columnId,
+                            data._id,
+                            "cover",
+                            c.url
+                          )
                         }
                         key={i}
                         src={c.url}
@@ -159,14 +139,10 @@ export const CardDetail = ({ data }: CardDetailProps) => {
             <div className="w-70 min-h-50 bg-white"></div>
           </Popover>
         </div>
-        {card?.cover && (
+        {data?.cover && (
           <span
             onClick={() =>
-              dispatch({
-                type: "UPDATE_FIELD",
-                value: "",
-                field: "cover",
-              })
+              handleUpdateCard(data.columnId, data._id, "cover", "")
             }
             className="absolute hidden group-hover:block bottom-2 right-3 text-sm bg-white rounded-md p-1 cursor-pointer"
           >
@@ -180,15 +156,22 @@ export const CardDetail = ({ data }: CardDetailProps) => {
           <div className="px-5 pt-5 flex items-center gap-5">
             <CheckboxDemo
               onCheckedChange={(checked) =>
-                dispatch({
-                  type: "UPDATE_FIELD",
-                  value: checked === true,
-                  field: "status",
-                })
+                // dispatch({
+                //   type: "UPDATE_FIELD",
+                //   value: checked === true,
+                //   field: "status",
+                // })
+
+                handleUpdateCard(
+                  data.columnId,
+                  data._id,
+                  "status",
+                  checked === true
+                )
               }
-              checked={card?.status}
+              checked={data?.status}
             />
-            <label className="text-xl font-bold">{card?.label}</label>
+            <label className="text-xl font-bold">{data?.label}</label>
           </div>
           {/* actions */}
           <div className="px-5 flex gap-5">
@@ -264,7 +247,7 @@ export const CardDetail = ({ data }: CardDetailProps) => {
             </div>
             <div className={`flex gap-5 pb-10 ${isOpenForm ? "min-h-80" : ""}`}>
               <div className="w-5"></div>
-              {!card?.description && !isOpenForm && (
+              {!data?.description && !isOpenForm && (
                 <div className="flex-1">
                   <div
                     onClick={() => setIsOpenForm(true)}

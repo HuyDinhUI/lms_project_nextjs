@@ -22,6 +22,7 @@ import API from "@/utils/axios";
 import { toast } from "react-toastify";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/hooks/useAuth";
+import { SkeletonHeader } from "./skeleton";
 
 export const Header = () => {
   const [theme, setTheme] = useState<string | null>("light");
@@ -71,7 +72,7 @@ export const Header = () => {
     },
   ];
 
-  if (loading) return null;
+  if (loading) return<SkeletonHeader/>
 
   return (
     <div className="flex px-3 py-2 items-center">

@@ -1,20 +1,22 @@
 "use client";
 
-import type { CardType } from "@/types/board/card";
 import {
   SortableContext,
   verticalListSortingStrategy,
   useSortable,
 } from "@dnd-kit/sortable";
 import { Edit, Paperclip, SquareCheckBig, Text, Trash } from "lucide-react";
-import { useState } from "react";
 import { CSS } from "@dnd-kit/utilities";
 import CheckboxDemo from "../ui/checkbox";
 import { Button } from "../ui/button";
 import AlertDialogDemo from "../ui/alert-dialog";
 import { Dialog } from "../ui/dialog";
 import { CardDetail } from "../card-detail";
-import API from "@/utils/axios";
+import { useAppDispatch } from "@/hooks/useRedux";
+import { AppDispatch } from "@/store";
+import { deleteCard, updateCard } from "@/store/boardSlice";
+import { CardService } from "@/services/card.service";
+import { Card as CardType } from "@/types/board.type";
 
 type CardProps = {
   item: CardType;
@@ -30,7 +32,7 @@ export const Card = ({ item }: CardProps) => {
     isDragging,
   } = useSortable({ id: item._id, data: { ...item } });
 
-  const [checked, setChecked] = useState<boolean | undefined>(item.status);
+  const dispatch = useAppDispatch<AppDispatch>();
 
   const style = {
     touchAction: "none",
@@ -39,11 +41,27 @@ export const Card = ({ item }: CardProps) => {
     opacity: isDragging ? 0.5 : undefined,
   };
 
-  const deleteCard = () => {};
+  const handleDeleteCard = async () => {
+    dispatch(deleteCard({ columnId: item.columnId, cardId: item._id }));
+    
+    try {
+      await CardService.deleteCard(item._id)
+    }
+    catch {}
+  };
 
-  const markCard = async (mark: boolean) => {
-    const data = { ...item, status: mark };
-    await API.put("/card/update/content", data);
+  const markCard = async (
+    columnId: string,
+    cardId: string,
+    field: string,
+    value: any
+  ) => {
+    const newData = { ...item, [field]: value };
+    dispatch(updateCard({ columnId, cardId, field, value }));
+
+    try {
+      await CardService.updateContent(newData);
+    } catch {}
   };
 
   return (
@@ -76,13 +94,12 @@ export const Card = ({ item }: CardProps) => {
         <div className="flex flex-1 items-center gap-2 group">
           <CheckboxDemo
             classname={`animate-checkbox ${
-              checked ? "" : "hidden group-hover:block"
+              item.status ? "" : "hidden group-hover:block"
             }`}
             onCheckedChange={(checked) => {
-              markCard(checked === true);
-              setChecked(checked === true);
+              markCard(item.columnId, item._id, "status", checked === true);
             }}
-            checked={checked}
+            checked={item.status}
           />
           <Dialog trigger={<label>{item.label}</label>}>
             <CardDetail data={item} />
@@ -90,7 +107,7 @@ export const Card = ({ item }: CardProps) => {
         </div>
         <div className="flex gap-2 items-center opacity-0 group-hover:opacity-100 transition-opacity duration-100 absolute top-1 right-1">
           <AlertDialogDemo
-            onclick={deleteCard}
+            onclick={() => handleDeleteCard()}
             label="Are you sure delete this card?"
             description=""
             trigger={
@@ -124,13 +141,13 @@ export const Card = ({ item }: CardProps) => {
             <Text size={15} />
           </div>
         )}
-        {item.attachments && (
+        {item.attachments?.length > 0 && (
           <div className="flex items-center gap-1 pb-2">
             <Paperclip size={15} />
             <span>1</span>
           </div>
         )}
-        {item.checklist.length > 0 && (
+        {item.checklist?.length > 0 && (
           <div className="flex gap-1 items-center pb-2">
             <SquareCheckBig size={15} />
             <span>1/3</span>
